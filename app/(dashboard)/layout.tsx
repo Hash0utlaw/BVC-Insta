@@ -1,6 +1,7 @@
 import type React from "react"
 import Header from "@/components/header"
-import { MotionWrapper } from "@/components/motion-wrapper"
+import MotionWrapper from "@/components/motion-wrapper"
+import { Toaster } from "@/components/ui/sonner"
 
 export default function DashboardLayout({
   children,
@@ -8,18 +9,18 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen bg-transparent flex flex-col">
+    <div className="min-h-screen w-full text-white">
       <div
-        className="fixed inset-0 z-0 bg-cover bg-center"
-        style={{ backgroundImage: "url(/images/motorcycle-night-bg.png)" }}
+        className="fixed inset-0 z-[-1] h-full w-full bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: "url('/images/motorcycle-night-bg.png')" }}
       />
-      <div className="fixed inset-0 z-0 bg-black/70 backdrop-blur-sm" />
-      <div className="relative z-10 flex flex-col min-h-screen">
-        <Header />
-        <MotionWrapper>
-          <main className="flex-grow container mx-auto p-4 md:p-6">{children}</main>
-        </MotionWrapper>
-      </div>
+      <div className="fixed inset-0 z-[-1] h-full w-full bg-black/60 backdrop-blur-sm" />
+
+      <Header />
+      <main className="pt-20">
+        <MotionWrapper>{children}</MotionWrapper>
+      </main>
+      <Toaster theme="dark" richColors />
     </div>
   )
 }

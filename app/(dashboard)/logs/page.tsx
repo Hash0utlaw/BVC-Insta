@@ -1,10 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import Link from "next/link"
-import { CheckCircle, XCircle, ExternalLink } from "lucide-react"
-import type { RepostLog } from "@/app/types"
+import { CircleCheck, CircleX } from "lucide-react"
 
 async function getRepostLogs() {
   const supabase = createClient()
@@ -15,95 +12,86 @@ async function getRepostLogs() {
       id,
       created_at,
       status,
-      repost_timestamp,
-      details,
+      message,
       queued_posts (
+        id,
         author_username,
         instagram_url
       )
     `,
     )
-    .order("repost_timestamp", { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(50)
 
   if (error) {
     console.error("Error fetching repost logs:", error)
     return []
   }
-  return data as RepostLog[]
+  return data
 }
 
 export default async function LogsPage() {
   const logs = await getRepostLogs()
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold tracking-tight text-white mb-6">Repost Logs</h1>
-      <Card className="bg-black border-gold/20">
-        <CardHeader>
-          <CardTitle className="text-gold">Recent Activity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-b-gold/20 hover:bg-white/5">
-                  <TableHead className="text-white">Status</TableHead>
-                  <TableHead className="text-white">Author</TableHead>
-                  <TableHead className="text-white">Details</TableHead>
-                  <TableHead className="text-white">Timestamp</TableHead>
-                  <TableHead className="text-white text-right">Post</TableHead>
+    <div className="container mx-auto p-4 md:p-8">
+      <div className="bg-black/50 backdrop-blur-sm border border-gold/20 rounded-xl p-6">
+        <h1 className="text-3xl font-bold text-gold mb-2">Repost Logs</h1>
+        <p className="text-gray-300 mb-6">History of all repost attempts triggered by your n8n workflow.</p>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-b-gold/20 hover:bg-white/5">
+                <TableHead className="text-gold">Status</TableHead>
+                <TableHead className="text-gold">Post Author</TableHead>
+                <TableHead className="text-gold">Details</TableHead>
+                <TableHead className="text-gold text-right">Timestamp</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {logs.map((log: any) => (
+                <TableRow key={log.id} className="border-b-gold/10 hover:bg-white/5">
+                  <TableCell>
+                    <Badge
+                      variant={log.status === "success" ? "default" : "destructive"}
+                      className={
+                        log.status === "success" ? "bg-green-600/80 border-green-500" : "bg-red-600/80 border-red-500"
+                      }
+                    >
+                      {log.status === "success" ? (
+                        <CircleCheck className="mr-2 h-4 w-4" />
+                      ) : (
+                        <CircleX className="mr-2 h-4 w-4" />
+                      )}
+                      {log.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <a
+                      href={log.queued_posts.instagram_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-gold transition-colors"
+                    >
+                      @{log.queued_posts.author_username}
+                    </a>
+                  </TableCell>
+                  <TableCell className="text-gray-400">{log.message}</TableCell>
+                  <TableCell className="text-right text-gray-400">
+                    {new Date(log.created_at).toLocaleString()}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {logs.length > 0 ? (
-                  logs.map((log) => (
-                    <TableRow key={log.id} className="border-b-gold/20 hover:bg-white/5">
-                      <TableCell>
-                        <Badge
-                          variant={log.status === "success" ? "default" : "destructive"}
-                          className={
-                            log.status === "success"
-                              ? "bg-green-500/20 text-green-300 border-green-400"
-                              : "bg-red-500/20 text-red-300 border-red-400"
-                          }
-                        >
-                          {log.status === "success" ? (
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                          ) : (
-                            <XCircle className="h-3 w-3 mr-1" />
-                          )}
-                          {log.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>@{log.queued_posts?.author_username || "N/A"}</TableCell>
-                      <TableCell className="text-muted-foreground text-xs">{log.details}</TableCell>
-                      <TableCell>{new Date(log.repost_timestamp).toLocaleString()}</TableCell>
-                      <TableCell className="text-right">
-                        {log.queued_posts?.instagram_url && (
-                          <Link
-                            href={log.queued_posts.instagram_url}
-                            target="_blank"
-                            className="text-gold hover:underline"
-                          >
-                            <ExternalLink className="h-4 w-4 inline" />
-                          </Link>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
-                      No logs found.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        {logs.length === 0 && (
+          <div className="text-center py-12 text-gray-500">
+            <p>No logs found.</p>
+            <p className="text-sm">Repost attempts will appear here once your n8n workflow runs.</p>
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
     </div>
   )
 }

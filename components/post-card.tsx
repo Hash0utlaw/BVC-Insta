@@ -1,95 +1,93 @@
 "use client"
 
-import { useState } from "react"
-import Image from "next/image"
-import Link from "next/link"
+import { useState, useTransition } from "react"
 import { motion } from "framer-motion"
-import { useToast } from "@/hooks/use-toast"
-import { queuePost } from "@/app/actions"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ThumbsUp, MessageSquare, CloudUpload, Loader2, ExternalLink } from "lucide-react"
 import type { Post } from "@/app/types"
-
-const cardVariants = {
-  hidden: { y: 20, opacity: 0 },
-  visible: {
-    y: 0,
-    opacity: 1,
-    transition: {
-      type: "spring",
-      stiffness: 100,
-    },
-  },
-}
+import { Checkbox } from "./ui/checkbox"
+import { Label } from "./ui/label"
+import { ArrowUpRight, Heart, MessageCircle, Loader2, ImageIcon, Video } from "lucide-react"
 
 interface PostCardProps {
   post: Post
-  storeInSupabase: boolean
-  onPostQueued: (postId: string) => void
+  index: number
+  onQueue: (post: Post, storeInSupabase: boolean) => Promise<void>
 }
 
-export function PostCard({ post, storeInSupabase, onPostQueued }: PostCardProps) {
-  const [isQueuing, setIsQueuing] = useState(false)
-  const { toast } = useToast()
+export default function PostCard({ post, index, onQueue }: PostCardProps) {
+  const [storeInSupabase, setStoreInSupabase] = useState(true)
+  const [isQueuing, startTransition] = useTransition()
 
-  const handleQueuePost = async () => {
-    setIsQueuing(true)
-    const result = await queuePost(post, storeInSupabase)
-    toast({
-      title: result.success ? "Success" : "Error",
-      description: result.message,
-      variant: result.success ? "default" : "destructive",
+  const handleQueueClick = () => {
+    startTransition(async () => {
+      await onQueue(post, storeInSupabase)
     })
-    if (result.success) {
-      onPostQueued(post.id)
-    }
-    setIsQueuing(false)
   }
 
   return (
-    <motion.div variants={cardVariants}>
-      <Card className="bg-black border border-gold/20 overflow-hidden flex flex-col h-full transition-all duration-300 hover:border-gold hover:shadow-lg hover:shadow-gold/10">
+    <motion.div
+      initial={{ opacity: 0, y: 50 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: index * 0.05 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      layout
+    >
+      <Card className="bg-black/50 border-gold/20 overflow-hidden h-full flex flex-col">
         <CardHeader className="p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="font-semibold text-white truncate">@{post.authorUsername}</div>
-            <Link
+          <div className="relative">
+            <img
+              src={post.displayUrl || "/placeholder.svg"}
+              alt={`Post by ${post.authorUsername}`}
+              className="aspect-square w-full rounded-lg object-cover"
+            />
+            <a
               href={post.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-gold hover:underline flex-shrink-0"
+              className="absolute top-2 right-2 bg-black/50 p-2 rounded-full text-white hover:bg-gold hover:text-black transition-all"
             >
-              <ExternalLink className="h-4 w-4" />
-            </Link>
+              <ArrowUpRight className="h-4 w-4" />
+            </a>
+            <Badge variant="outline" className="absolute bottom-2 left-2 bg-black/50 border-gold/50 text-gold">
+              {post.isVideo ? <Video className="mr-2 h-4 w-4" /> : <ImageIcon className="mr-2 h-4 w-4" />}
+              {post.isVideo ? "Video" : "Image"}
+            </Badge>
           </div>
         </CardHeader>
-        <CardContent className="p-0 flex-grow">
-          <div className="aspect-square relative">
-            <Image
-              src={post.displayUrl || "/placeholder.svg"}
-              alt={`Instagram post by ${post.authorUsername}`}
-              fill
-              className="object-cover"
-            />
-          </div>
-          <div className="p-4 space-y-3">
-            <p className="text-sm text-muted-foreground line-clamp-2">{post.caption}</p>
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <Badge variant="secondary" className="flex items-center gap-1">
-                <ThumbsUp className="h-3 w-3" /> {post.likesCount}
-              </Badge>
-              <Badge variant="secondary" className="flex items-center gap-1">
-                <MessageSquare className="h-3 w-3" /> {post.commentsCount}
-              </Badge>
-              <Badge className="bg-gold/20 text-gold border-gold/50">Score: {post.engagementScore}</Badge>
+        <CardContent className="p-4 flex-grow">
+          <CardTitle className="text-lg font-bold text-white mb-2 truncate">@{post.authorUsername}</CardTitle>
+          <p className="text-sm text-gray-400 line-clamp-3 mb-4">{post.caption}</p>
+          <div className="flex items-center gap-6 text-sm text-gray-300">
+            <div className="flex items-center gap-1.5">
+              <Heart className="h-4 w-4 text-red-500" />
+              <span>{post.likesCount.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <MessageCircle className="h-4 w-4 text-blue-400" />
+              <span>{post.commentsCount.toLocaleString()}</span>
             </div>
           </div>
         </CardContent>
-        <CardFooter className="p-4 bg-black/50 mt-auto">
-          <Button className="w-full" onClick={handleQueuePost} disabled={isQueuing}>
-            {isQueuing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CloudUpload className="mr-2 h-4 w-4" />}
-            Queue for Repost
+        <CardFooter className="p-4 bg-black/30 border-t border-gold/20 flex-col items-start gap-4">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id={`store-${post.id}`}
+              checked={storeInSupabase}
+              onCheckedChange={(checked) => setStoreInSupabase(Boolean(checked))}
+              className="border-gold/50 data-[state=checked]:bg-gold data-[state=checked]:text-black"
+            />
+            <Label htmlFor={`store-${post.id}`} className="text-sm text-gray-300">
+              Store media in Supabase
+            </Label>
+          </div>
+          <Button
+            onClick={handleQueueClick}
+            disabled={isQueuing}
+            className="w-full bg-gold hover:bg-gold/90 text-black font-bold"
+          >
+            {isQueuing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Queue for Repost"}
           </Button>
         </CardFooter>
       </Card>

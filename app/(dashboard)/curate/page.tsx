@@ -1,122 +1,100 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useActionState } from "react"
-import { fetchAndScorePosts } from "@/app/actions"
+import { useActionState, useEffect, useState } from "react"
+import { fetchAndScorePosts, queuePost } from "@/app/actions"
+import type { Post } from "@/app/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
-import { Loader2 } from "lucide-react"
-import { motion, AnimatePresence } from "framer-motion"
-import { PostCard } from "@/components/post-card"
-import type { Post } from "@/app/types"
+import { useToast } from "@/components/ui/use-toast"
+import PostCard from "@/components/post-card"
+import { AnimatePresence, motion } from "framer-motion"
+import { Loader2, Search } from "lucide-react"
 
 const initialState = {
   success: false,
   message: "",
-  data: [] as Post[],
-}
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.05,
-    },
-  },
+  data: [],
 }
 
 export default function CuratePage() {
   const [state, formAction, isPending] = useActionState(fetchAndScorePosts, initialState)
-  const [storeInSupabase, setStoreInSupabase] = useState(true)
   const [posts, setPosts] = useState<Post[]>([])
+  const { toast } = useToast()
 
-  // Synchronise posts AFTER render when `state.data` changes
   useEffect(() => {
-    if (Array.isArray(state.data)) {
-      setPosts(state.data)
-    } else {
-      // fall back to empty array on error/undefined
-      setPosts([])
+    if (state.success) {
+      setPosts(state.data || [])
+      if (state.message) {
+        toast({
+          title: "Fetch Status",
+          description: state.message,
+        })
+      }
+    } else if (state.message) {
+      toast({
+        title: "Error",
+        description: state.message,
+        variant: "destructive",
+      })
     }
-  }, [state.data])
+  }, [state, toast])
 
-  const handlePostQueued = (postId: string) => {
-    setPosts((prev) => prev.filter((p) => p.id !== postId))
+  const handleQueuePost = async (post: Post, storeInSupabase: boolean) => {
+    const result = await queuePost(post, storeInSupabase)
+    toast({
+      title: result.success ? "Success" : "Error",
+      description: result.message,
+      variant: result.success ? "default" : "destructive",
+    })
+    if (result.success) {
+      // Remove the post from the view after queuing
+      setPosts((prevPosts) => prevPosts.filter((p) => p.id !== post.id))
+    }
   }
 
   return (
-    <div className="space-y-8">
-      <Card className="bg-black border-gold/20">
-        <CardHeader>
-          <CardTitle className="text-gold">Find & Curate Content</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form action={formAction} className="space-y-4">
-            <div>
-              <Label htmlFor="hashtags" className="text-white">
-                Instagram Hashtags
-              </Label>
-              <Input
-                id="hashtags"
-                name="hashtags"
-                type="text"
-                placeholder="e.g., superbikes, motovlog, bikestagram"
-                required
-                className="bg-black border-gold/30 focus:border-gold focus:ring-gold"
-              />
-              <p className="text-sm text-muted-foreground mt-1">Enter comma-separated hashtags.</p>
-            </div>
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="store-media"
-                  checked={storeInSupabase}
-                  onCheckedChange={setStoreInSupabase}
-                  className="data-[state=checked]:bg-gold"
-                />
-                <Label htmlFor="store-media">Store Media in Supabase</Label>
-              </div>
-              <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Fetch Posts
-              </Button>
-            </div>
-          </form>
-          {state.message && !isPending && (
-            <p className={`mt-4 text-sm ${state.success ? "text-green-400" : "text-red-400"}`}>{state.message}</p>
-          )}
-        </CardContent>
-      </Card>
+    <div className="container mx-auto p-4 md:p-8">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="bg-black/50 backdrop-blur-sm border border-gold/20 rounded-xl p-6 mb-8"
+      >
+        <h1 className="text-3xl font-bold text-gold mb-2">Content Curation</h1>
+        <p className="text-gray-300 mb-6">Enter hashtags separated by commas to find top-performing content.</p>
+        <form action={formAction} className="flex flex-col sm:flex-row gap-4">
+          <Input
+            name="hashtags"
+            placeholder="e.g., superbikes, motolife, bikesvscops"
+            className="flex-grow bg-gray-800 border-gray-600 text-white placeholder:text-gray-400 focus:ring-gold"
+            required
+          />
+          <Button type="submit" disabled={isPending} className="bg-gold hover:bg-gold/90 text-black font-bold">
+            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+            Fetch Content
+          </Button>
+        </form>
+      </motion.div>
 
-      <div>
-        <h2 className="text-2xl font-semibold mb-4 text-white">Fetched Posts</h2>
-        {isPending && (
-          <div className="text-center p-8 text-muted-foreground">
-            Fetching posts... <Loader2 className="inline-block h-5 w-5 animate-spin" />
-          </div>
-        )}
-        <AnimatePresence>
-          {posts.length > 0 && (
-            <motion.div
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-            >
-              {posts.map((post: Post) => (
-                <PostCard key={post.id} post={post} storeInSupabase={storeInSupabase} onPostQueued={handlePostQueued} />
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-        {!isPending && posts.length === 0 && state.message && (
-          <div className="text-center text-muted-foreground py-10">No posts found. Try different hashtags.</div>
-        )}
-      </div>
+      <AnimatePresence>
+        <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {posts.map((post, index) => (
+            <PostCard key={post.id} post={post} index={index} onQueue={handleQueuePost} />
+          ))}
+        </motion.div>
+      </AnimatePresence>
+
+      {isPending && posts.length === 0 && (
+        <div className="flex justify-center items-center mt-10">
+          <Loader2 className="h-12 w-12 text-gold animate-spin" />
+        </div>
+      )}
+
+      {!isPending && posts.length === 0 && state.message && (
+        <div className="text-center mt-10 text-gray-400">
+          <p>No posts found. Try fetching with different hashtags.</p>
+        </div>
+      )}
     </div>
   )
 }

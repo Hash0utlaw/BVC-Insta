@@ -21,3 +21,5 @@ export function MotionWrapper({ children }: { children: React.ReactNode }) {
     </AnimatePresence>
   )
 }
+
+export default MotionWrapper
